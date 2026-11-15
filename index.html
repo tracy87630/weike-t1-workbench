@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>T1 首捐轉定期工作台</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f6f8fb; --card: #ffffff;
+      --primary: #1f5c7a; --primary-light: #e8f2f7;
+      --accent: #d97706; --accent-light: #fef3c7;
+      --success: #15803d; --success-light: #dcfce7;
+      --danger: #b91c1c; --danger-light: #fee2e2;
+      --text: #1e293b; --muted: #64748b; --border: #e2e8f0; --radius: 12px;
+      --s0: #64748b; --s30: #1f5c7a; --s50a: #15803d; --s50b: #d97706;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+    header { background: var(--primary); color: #fff; padding: 16px 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    header h1 { margin: 0; font-size: 1.2rem; }
+    header p { margin: 2px 0 0; font-size: 0.85rem; opacity: 0.9; }
+    .privacy-badge { background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.28); padding: 6px 12px; border-radius: 999px; font-size: 0.8rem; white-space: nowrap; }
+    main { max-width: 1360px; margin: 18px auto; padding: 0 20px 48px; }
+    .hidden { display: none !important; }
+
+    .main-tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--border); margin-bottom: 18px; }
+    .main-tab { padding: 10px 18px; border: none; background: none; font-size: 0.95rem; font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .main-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .upload-zone { background: var(--card); border: 2px dashed #94a3b8; border-radius: var(--radius); padding: 24px; text-align: center; margin-bottom: 18px; transition: all .2s; }
+    .upload-zone.dragover { border-color: var(--primary); background: var(--primary-light); }
+    .upload-zone.compact { padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 12px; flex-wrap: wrap; }
+    .upload-zone h2 { margin: 0 0 6px; font-size: 1.05rem; color: var(--primary); }
+    .upload-zone p { margin: 0 0 12px; font-size: 0.86rem; color: var(--muted); }
+    .upload-zone.compact h2, .upload-zone.compact p { margin: 0; }
+
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid transparent; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: #fff; border-color: var(--border); color: var(--text); }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-danger { background: #fff; border-color: var(--danger-light); color: var(--danger); }
+    .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+    .settings { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; font-size: 0.86rem; }
+    .settings label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+    .settings input[type=date], .settings input[type=number] { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
+    .settings input[type=number] { width: 64px; }
+    .settings .hint { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
+
+    /* timeline */
+    .timeline { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px 14px; margin-bottom: 16px; }
+    .timeline-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .timeline-head h3 { margin: 0; font-size: 1rem; color: var(--primary); }
+    .timeline-head .sum { font-size: 0.85rem; color: var(--muted); }
+    .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; position: relative; }
+    .stages::before { content: ""; position: absolute; left: 4%; right: 4%; top: 22px; height: 3px; background: var(--border); z-index: 0; }
+    .stage { position: relative; z-index: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; text-align: left; font: inherit; color: inherit; transition: all .15s; }
+    .stage:hover { border-color: #94a3b8; }
+    .stage.active { border-color: var(--c); box-shadow: 0 0 0 2px var(--c) inset; }
+    .stage .day { display: inline-block; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--c); padding: 1px 8px; border-radius: 999px; }
+    .stage .name { font-weight: 700; font-size: 0.9rem; margin-top: 6px; }
+    .stage .goal { font-size: 0.76rem; color: var(--muted); }
+    .stage .n { font-size: 1.6rem; font-weight: 800; color: var(--c); line-height: 1.2; margin-top: 4px; }
+    .stage .n small { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
+    .stage .due { font-size: 0.76rem; color: var(--accent); font-weight: 700; }
+    .stage-all { grid-column: 1 / -1; }
+    @media (max-width: 800px) { .stages { grid-template-columns: 1fr 1fr; } .stages::before { display: none; } }
+
+    .layout-2col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 1080px) { .layout-2col { grid-template-columns: 1fr; } }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .panel-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .panel-header h3 { margin: 0; font-size: 1rem; color: var(--primary); }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; font-size: 0.84rem; }
+    .filters select, .filters input[type=text] { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.84rem; background: #fff; color: var(--text); }
+    .filters label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+    .table-wrap { overflow: auto; max-height: 520px; border: 1px solid var(--border); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { background: #f1f5f9; position: sticky; top: 0; z-index: 1; font-weight: 700; color: #334155; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: #f8fafc; }
+    tbody tr.selected { background: var(--primary-light); }
+    tbody tr.sent td { color: #94a3b8; }
+    .empty { padding: 28px; text-align: center; color: var(--muted); font-size: 0.86rem; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; }
+    .t-s0 { background: #e2e8f0; color: #334155; }
+    .t-s30 { background: var(--primary-light); color: var(--primary); }
+    .t-s50a { background: var(--success-light); color: var(--success); }
+    .t-s50b { background: var(--accent-light); color: #92400e; }
+    .t-warn { background: var(--danger-light); color: var(--danger); }
+    .t-ok { background: var(--success-light); color: var(--success); }
+    .t-due { background: var(--accent); color: #fff; }
+
+    .donor-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; font-size: 0.8rem; }
+    .meta-pill { background: #f1f5f9; padding: 3px 9px; border-radius: 6px; color: #334155; }
+    .note-alert { background: var(--accent-light); color: #92400e; padding: 8px 10px; border-radius: 8px; font-size: 0.8rem; margin-bottom: 10px; }
+    .preview { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .preview-subject { background: #f8fafc; border-bottom: 1px solid var(--border); padding: 10px 12px; font-weight: 700; font-size: 0.9rem; }
+    .preview-subject span { color: var(--muted); font-weight: 600; font-size: 0.78rem; margin-right: 6px; }
+    .preview-body { padding: 14px; font-size: 0.88rem; white-space: pre-wrap; max-height: 420px; overflow: auto; line-height: 1.7; }
+    .action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+    .toast { font-size: 0.82rem; color: var(--success); font-weight: 600; opacity: 0; transition: opacity .2s; }
+    .toast.show { opacity: 1; }
+
+    /* materials */
+    .mat-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; }
+    .mat-bar select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.88rem; font-weight: 700; }
+    .mat-bar .active-note { font-size: 0.8rem; color: var(--muted); margin-left: auto; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+    .field input[type=text], .field textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: inherit; font-size: 0.86rem; background: #fff; color: var(--text); }
+    .field textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
+    .field textarea.tall { min-height: 220px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+    .tpl-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tpl-tab { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: #fff; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+    .tpl-tab.active { background: var(--c, var(--primary)); color: #fff; border-color: var(--c, var(--primary)); }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 10px; }
+    .chip { padding: 2px 8px; border-radius: 6px; background: var(--primary-light); color: var(--primary); font-size: 0.76rem; cursor: pointer; border: none; font-family: inherit; }
+    .chip:hover { filter: brightness(0.95); }
+    .sub-note { font-size: 0.78rem; color: var(--muted); margin: 0 0 10px; }
+    section h4 { margin: 0 0 10px; font-size: 0.92rem; color: var(--primary); }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>T1 首捐轉定期工作台</h1>
+      <p>首捐後 60 天內的單筆捐款人 → 首捐感謝信 → 30 天信（故事上集）→ 50 天信（故事下集，依是否已轉定期分兩版）</p>
+    </div>
+    <div class="privacy-badge">🔒 名單只在這台電腦的瀏覽器裡計算，不上傳</div>
+  </header>
+
+  <main>
+    <nav class="main-tabs">
+      <button class="main-tab active" data-view="work">📋 收件名單與寄送</button>
+      <button class="main-tab" data-view="mat">✏️ 信件素材管理（每季替換）</button>
+    </nav>
+
+    <!-- ============ 收件名單 ============ -->
+    <div id="view-work">
+      <div id="uploadZone" class="upload-zone">
+        <div>
+          <h2>匯入捐款人名單（.xlsx）</h2>
+          <p id="uploadHint">拖曳從捐款系統匯出的工作簿到這裡，需包含「①捐款人名單」與「②一年內捐款紀錄」兩個分頁</p>
+        </div>
+        <div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden" />
+          <button type="button" class="btn btn-primary" id="pickBtn">選擇檔案匯入</button>
+        </div>
+      </div>
+
+      <div id="dashboard" class="hidden">
+        <div class="settings">
+          <label>基準日 <input type="date" id="refDate" /></label>
+          <label>T1 範圍：首捐後 <input type="number" id="winDays" value="60" min="50" max="120" /> 天內</label>
+          <label>「本週該寄」＝進入階段 <input type="number" id="dueDays" value="7" min="1" max="30" /> 天內</label>
+          <span class="hint" id="refHint"></span>
+        </div>
+
+        <div class="timeline">
+          <div class="timeline-head">
+            <h3>轉換時間軸（點選切換收件群）</h3>
+            <span class="sum" id="tlSum"></span>
+          </div>
+          <div class="stages" id="stages"></div>
+        </div>
+
+        <div class="layout-2col">
+          <div class="panel">
+            <div class="panel-header">
+              <h3 id="listTitle">收件名單</h3>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline btn-sm" id="markAllBtn">✓ 本頁全部標記已寄</button>
+                <button type="button" class="btn btn-outline btn-sm" id="exportCsvBtn">⬇ 匯出寄送清單 CSV（含已套用文案）</button>
+              </div>
+            </div>
+            <div class="filters">
+              <label><input type="checkbox" id="fDue" /> 只看本週該寄</label>
+              <label><input type="checkbox" id="fHideSent" /> 隱藏已寄</label>
+              <select id="fChannel">
+                <option value="">全部管道</option>
+                <option value="email">Email 可寄</option>
+                <option value="offline">Email 到不了（改簡訊／紙本）</option>
+              </select>
+              <select id="fProject"><option value="">全部專案</option></select>
+              <select id="fSource"><option value="">全部來源</option></select>
+              <label><input type="checkbox" id="fNoCal" /> 排除桌曆認購</label>
+              <input type="text" id="fSearch" placeholder="搜尋代碼或備註" />
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th></th><th>代碼</th><th>這一封</th><th>首捐日</th><th>第幾天</th><th>預定寄送日</th>
+                    <th>首捐專案／金額</th><th>付款</th><th>轉定期</th><th>管道</th><th>備註</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+              </table>
+              <div class="empty hidden" id="emptyMsg">沒有符合條件的收件人</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>信件預覽</h3>
+              <span class="tag t-ok" id="selTag">請點選左側收件人</span>
+            </div>
+            <div id="donorMeta" class="donor-meta"></div>
+            <div id="noteAlert" class="note-alert hidden"></div>
+            <div class="preview">
+              <div class="preview-subject"><span>主旨</span><b id="pvSubject">—</b></div>
+              <div class="preview-body" id="pvBody">—</div>
+            </div>
+            <div class="action-row">
+              <button type="button" class="btn btn-accent" id="copyBtn">📋 複製主旨與內文</button>
+              <button type="button" class="btn btn-outline" id="sentBtn">✓ 標記已寄</button>
+              <span class="toast" id="toast">已複製！</span>
+            </div>
+            <p class="sub-note" style="margin-top:10px;" id="pvQuarter"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 素材管理 ============ -->
+    <div id="view-mat" class="hidden">
+      <div class="mat-bar">
+        <label style="font-size:0.84rem; font-weight:700; color:var(--muted);">目前使用的季度素材</label>
+        <select id="setSelect"></select>
+        <button class="btn btn-outline btn-sm" id="newSetBtn">＋ 複製成新一季</button>
+        <button class="btn btn-danger btn-sm" id="delSetBtn">刪除這一季</button>
+        <button class="btn btn-outline btn-sm" id="exportSetBtn">⬇ 匯出素材檔（給同事）</button>
+        <button class="btn btn-outline btn-sm" id="importSetBtn">⬆ 匯入素材檔</button>
+        <input type="file" id="importSetInput" accept=".json" class="hidden" />
+        <span class="active-note" id="saveNote">修改會自動儲存在這台電腦的瀏覽器</span>
+      </div>
+
+      <div class="layout-2col">
+        <div>
+          <div class="panel" style="margin-bottom:16px;">
+            <section>
+              <h4>① 本季共用素材</h4>
+              <p class="sub-note">成果故事分上下集，30 天信放上集、50 天信放下集。換季時通常只要換這一區。</p>
+              <div class="grid-2">
+                <div class="field"><label>季度名稱</label><input type="text" data-k="name" /></div>
+                <div class="field"><label>成果故事標題</label><input type="text" data-k="storyTitle" /></div>
+              </div>
+              <div class="field"><label>成果故事（上集）— 用在 30 天信 <code>{{故事上集}}</code></label><textarea data-k="storyPart1"></textarea></div>
+              <div class="field"><label>成果故事（下集）— 用在 50 天信 <code>{{故事下集}}</code></label><textarea data-k="storyPart2"></textarea></div>
+              <div class="grid-2">
+                <div class="field"><label>轉定期連結 <code>{{轉定期連結}}</code></label><input type="text" data-k="regularLink" /></div>
+                <div class="field"><label>分享連結 <code>{{分享連結}}</code></label><input type="text" data-k="shareLink" /></div>
+              </div>
+              <div class="field"><label>署名 <code>{{署名}}</code></label><input type="text" data-k="signature" /></div>
+            </section>
+          </div>
+
+          <div class="panel">
+            <section>
+              <h4>② 各階段信件文案</h4>
+              <div class="tpl-tabs" id="tplTabs"></div>
+              <p class="sub-note" id="tplGoal"></p>
+              <div class="field"><label>主旨</label><input type="text" id="tplSubject" /></div>
+              <div class="field"><label>內文</label><textarea id="tplBody" class="tall"></textarea></div>
+              <label style="font-size:0.78rem; font-weight:700; color:var(--muted);">點一下插入替換欄位（插在游標位置）</label>
+              <div class="chips" id="chips"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="panel" style="position:sticky; top:12px;">
+          <div class="panel-header">
+            <h3>即時預覽</h3>
+            <span class="tag t-s30" id="matPvTag">示範收件人</span>
+          </div>
+          <div class="preview">
+            <div class="preview-subject"><span>主旨</span><b id="matPvSubject"></b></div>
+            <div class="preview-body" id="matPvBody"></div>
+          </div>
+          <p class="sub-note" style="margin-top:10px;">預覽用的是示範收件人（首捐 1,000 元、熊愛做公益）。匯入名單後，「收件名單與寄送」頁會套用真實資料。</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script>
+/* ===================== 常數 ===================== */
+const STAGES = [
+  { key: 's0',  day: 0,  name: '首捐感謝信', goal: '固定內容：感謝與微客介紹', color: 'var(--s0)' },
+  { key: 's30', day: 30, name: '30 天信｜故事上集', goal: '目標：邀請轉為定期定額', color: 'var(--s30)' },
+  { key: 's50a', day: 50, name: '50 天信｜已轉定期', goal: '故事下集＋鼓勵分享、邀請親友', color: 'var(--s50a)' },
+  { key: 's50b', day: 50, name: '50 天信｜未轉定期', goal: '故事下集＋再次邀請定期定額', color: 'var(--s50b)' },
+];
+const STAGE_BY_KEY = Object.fromEntries(STAGES.map(s => [s.key, s]));
+const PLACEHOLDERS = ['稱謂','首捐日','首捐金額','建議月捐','專案','故事標題','故事上集','故事下集','轉定期連結','分享連結','署名','季度'];
+const LS_SETS = 'wk_t1_material_sets_v1';
+const LS_ACTIVE = 'wk_t1_material_active_v1';
+const LS_SENT = 'wk_t1_sent_v1';
+
+const DEFAULT_SET = {
+  id: 'default',
+  name: '2026 Q4（示範素材）',
+  storyTitle: '小安的第一個冬天',
+  storyPart1: '今年十月，烏蘭巴托郊區的氣溫已經降到零下。九歲的小安和奶奶住在蒙古包裡，每天放學要走四十分鐘回家，冬天的大衣是表哥穿過的，袖口早就磨破。\n\n第一次來到微客的課後據點時，小安總是坐在最角落，不太說話。老師發現他功課寫得很認真，卻常常因為太冷而握不住筆……\n\n（示範素材，請替換成本季真實故事）',
+  storyPart2: '上個月，小安收到了一件屬於自己的新外套和一雙防水靴。據點的暖爐每天下午準時燒起來，他開始留下來寫完功課才回家，也交到了第一個好朋友。\n\n上週的成果分享會上，小安第一次站上台，用不太流利的中文說：「謝謝台灣的朋友，我會好好念書。」\n\n這個冬天，據點一共陪伴了 120 個像小安一樣的孩子。\n\n（示範素材，請替換成本季真實故事）',
+  regularLink: 'https://（請貼上轉定期定額頁面網址）',
+  shareLink: 'https://（請貼上分享頁面網址）',
+  signature: '微客公益 勸募團隊 敬上',
+  templates: {
+    s0: {
+      subject: '謝謝你，成為孩子身邊的一份力量',
+      body: '{{稱謂}}您好：\n\n謝謝您在 {{首捐日}} 支持「{{專案}}」，您的 {{首捐金額}} 元已經平安收到。\n\n微客長期陪伴海內外的弱勢孩子，提供課後陪伴、數位學習與生活照顧。接下來，我們會不定期和您分享孩子們的近況，讓您看見這份心意如何在現場發芽。\n\n如果收據或聯絡資料需要調整，歡迎直接回信告訴我們。\n\n{{署名}}'
+    },
+    s30: {
+      subject: '{{故事標題}}（上）｜您支持的孩子，最近過得好嗎？',
+      body: '{{稱謂}}您好：\n\n一個月前，您支持了「{{專案}}」。今天想和您分享一個正在發生的故事。\n\n【{{故事標題}}・上集】\n{{故事上集}}\n\n像這樣的孩子，需要的不是一次性的幫忙，而是一整個冬天、一整年穩定的陪伴。\n\n如果您願意，每月 {{建議月捐}} 元的定期定額，就能讓據點提前規劃物資與師資，讓孩子知道這份守護一直都在。不限期數、隨時可以調整或暫停。\n\n👉 成為每月陪伴的夥伴：{{轉定期連結}}\n\n故事的下集，我們過幾週再告訴您。\n\n{{署名}}'
+    },
+    s50a: {
+      subject: '{{故事標題}}（下）｜謝謝您成為每月的陪伴',
+      body: '{{稱謂}}您好：\n\n謝謝您決定每月固定陪伴孩子！您的定期定額已經開始，這份穩定的力量，正是據點最需要的。\n\n上次說到一半的故事，今天告訴您結局。\n\n【{{故事標題}}・下集】\n{{故事下集}}\n\n如果這個故事也打動了您，想邀請您把它分享給一位朋友。一個人的陪伴很珍貴，多一個人加入，就能多照顧一個孩子。\n\n👉 分享這個故事：{{分享連結}}\n\n再次謝謝您，我們會持續和您分享孩子們的成長。\n\n{{署名}}'
+    },
+    s50b: {
+      subject: '{{故事標題}}（下）｜故事的後來，想讓您知道',
+      body: '{{稱謂}}您好：\n\n上次說到一半的故事，今天告訴您結局。\n\n【{{故事標題}}・下集】\n{{故事下集}}\n\n這些改變，來自許多每月固定支持的朋友。因為有可預期的資源，據點才能在冬天來臨前就準備好外套、暖爐和老師。\n\n誠摯邀請您加入他們：每月 {{建議月捐}} 元，不限期數、隨時可調整，讓下一個孩子也能被好好接住。\n\n👉 開始每月定期陪伴：{{轉定期連結}}\n\n不論您的選擇是什麼，都謝謝您曾經為孩子停下腳步。\n\n{{署名}}'
+    }
+  }
+};
+
+/* ===================== 小工具 ===================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const DAY = 86400000;
+function lsGet(k, fb) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } }
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function parseDate(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : v;
+  if (typeof v === 'number') { const d = new Date(Math.round((v - 25569) * DAY)); return isNaN(d) ? null : new Date(d.getTime() + d.getTimezoneOffset() * 60000); }
+  const m = String(v).trim().match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+}
+const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+const daysBetween = (a, b) => Math.round((startOfDay(b) - startOfDay(a)) / DAY);
+function suggestMonthly(amount) {
+  const tiers = [300, 500, 1000, 1500, 2000, 3000, 5000];
+  let pick = 300;
+  tiers.forEach(t => { if (amount >= t) pick = t; });
+  return pick;
+}
+function classifyOpen(row) {
+  const contact = String(row['接觸紀錄（寄信）'] || '');
+  const op = String(row['接觸紀錄（開信狀況）'] || '').trim();
+  if (contact.includes('無email') || op.includes('無email')) return '無Email';
+  if (!op) return '無紀錄';
+  if (op === '皆有開啟' || op === '都有開') return '都有開';
+  if (op === '無開啟' || op === '都沒開') return '都沒開';
+  if (op.includes('通知信有開') || op.includes('到期信有開')) return '只開通知信';
+  return '部分開';
+}
+
+/* ===================== 素材（每季） ===================== */
+let sets = lsGet(LS_SETS, null);
+if (!Array.isArray(sets) || !sets.length) sets = [structuredClone(DEFAULT_SET)];
+let activeId = lsGet(LS_ACTIVE, sets[0].id);
+if (!sets.find(s => s.id === activeId)) activeId = sets[0].id;
+let tplKey = 's30';
+const activeSet = () => sets.find(s => s.id === activeId);
+function persistSets() {
+  const ok = lsSet(LS_SETS, sets) && lsSet(LS_ACTIVE, activeId);
+  $('saveNote').textContent = ok ? `已自動儲存 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}` : '⚠️ 這個瀏覽器無法儲存，請記得「匯出素材檔」備份';
+}
+
+function fill(tpl, d, set) {
+  const map = {
+    '稱謂': '親愛的微客朋友',
+    '首捐日': d ? fmt(d.firstDate) : '2026-09-15',
+    '首捐金額': (d ? d.firstAmount : 1000).toLocaleString(),
+    '建議月捐': (d ? d.suggest : 1000).toLocaleString(),
+    '專案': d ? d.firstProject : '熊愛做公益',
+    '故事標題': set.storyTitle, '故事上集': set.storyPart1, '故事下集': set.storyPart2,
+    '轉定期連結': set.regularLink, '分享連結': set.shareLink, '署名': set.signature, '季度': set.name,
+  };
+  return String(tpl || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all, k) => (k in map ? map[k] : all));
+}
+function render(d, stageKey) {
+  const set = activeSet();
+  const t = set.templates[stageKey];
+  return { subject: fill(t.subject, d, set), body: fill(t.body, d, set) };
+}
+
+function renderSetSelect() {
+  $('setSelect').innerHTML = sets.map(s => `<option value="${esc(s.id)}" ${s.id === activeId ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+  $('delSetBtn').disabled = sets.length <= 1;
+}
+function loadSetToForm() {
+  const set = activeSet();
+  document.querySelectorAll('[data-k]').forEach(el => { el.value = set[el.dataset.k] || ''; });
+  renderTplTabs(); loadTpl(); renderMatPreview();
+}
+function renderTplTabs() {
+  $('tplTabs').innerHTML = STAGES.map(s =>
+    `<button class="tpl-tab ${s.key === tplKey ? 'active' : ''}" style="--c:${s.color}" data-k="${s.key}">Day ${s.day}｜${s.name.replace(/^.*?｜/, '')}${s.key==='s0'?'':''}</button>`
+  ).join('');
+  $('tplGoal').textContent = '這一封的目標：' + STAGE_BY_KEY[tplKey].goal;
+  $('matPvTag').textContent = STAGE_BY_KEY[tplKey].name;
+}
+function loadTpl() {
+  const t = activeSet().templates[tplKey];
+  $('tplSubject').value = t.subject; $('tplBody').value = t.body;
+}
+function renderMatPreview() {
+  const r = render(null, tplKey);
+  $('matPvSubject').textContent = r.subject; $('matPvBody').textContent = r.body;
+}
+$('tplTabs').addEventListener('click', e => {
+  const b = e.target.closest('.tpl-tab'); if (!b) return;
+  tplKey = b.dataset.k; renderTplTabs(); loadTpl(); renderMatPreview();
+});
+document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input', () => {
+  activeSet()[el.dataset.k] = el.value;
+  if (el.dataset.k === 'name') renderSetSelect();
+  persistSets(); renderMatPreview(); if (donors.length) renderDetail();
+}));
+['tplSubject', 'tplBody'].forEach(id => $(id).addEventListener('input', () => {
+  const t = activeSet().templates[tplKey];
+  t.subject = $('tplSubject').value; t.body = $('tplBody').value;
+  persistSets(); renderMatPreview(); if (donors.length) renderDetail();
+}));
+let lastFocus = $('tplBody');
+['tplSubject','tplBody'].forEach(id => $(id).addEventListener('focus', () => lastFocus = $(id)));
+document.querySelectorAll('textarea[data-k], input[data-k]').forEach(el => el.addEventListener('focus', () => lastFocus = null));
+$('chips').innerHTML = PLACEHOLDERS.map(p => `<button class="chip" data-p="${p}">{{${p}}}</button>`).join('');
+$('chips').addEventListener('mousedown', e => e.preventDefault());
+$('chips').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  const el = lastFocus || $('tplBody');
+  const ins = `{{${c.dataset.p}}}`;
+  const s = el.selectionStart ?? el.value.length, en = el.selectionEnd ?? el.value.length;
+  el.value = el.value.slice(0, s) + ins + el.value.slice(en);
+  el.focus(); el.selectionStart = el.selectionEnd = s + ins.length;
+  el.dispatchEvent(new Event('input'));
+});
+$('setSelect').addEventListener('change', e => { activeId = e.target.value; persistSets(); loadSetToForm(); if (donors.length) renderDetail(); });
+$('newSetBtn').addEventListener('click', () => {
+  const name = prompt('新一季的名稱（例如：2027 Q1）', ''); if (!name) return;
+  const copy = structuredClone(activeSet()); copy.id = 'set_' + Date.now(); copy.name = name;
+  sets.push(copy); activeId = copy.id; persistSets(); renderSetSelect(); loadSetToForm();
+});
+$('delSetBtn').addEventListener('click', () => {
+  if (sets.length <= 1) return;
+  if (!confirm(`確定刪除「${activeSet().name}」？刪除後無法復原（建議先匯出素材檔備份）。`)) return;
+  sets = sets.filter(s => s.id !== activeId); activeId = sets[0].id;
+  persistSets(); renderSetSelect(); loadSetToForm(); if (donors.length) renderDetail();
+});
+$('exportSetBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ type: 'weike-t1-materials', version: 1, sets, activeId }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `微客_T1信件素材_${activeSet().name.replace(/[\\/:*?"<>|\s]/g, '_')}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('importSetBtn').addEventListener('click', () => $('importSetInput').click());
+$('importSetInput').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const j = JSON.parse(rd.result);
+      if (j.type !== 'weike-t1-materials' || !Array.isArray(j.sets)) throw new Error('格式不符');
+      let added = 0;
+      j.sets.forEach(s => {
+        if (!s.templates || !STAGES.every(st => s.templates[st.key])) return;
+        const i = sets.findIndex(x => x.id === s.id);
+        if (i >= 0) sets[i] = s; else sets.push(s);
+        added++;
+      });
+      if (j.activeId && sets.find(s => s.id === j.activeId)) activeId = j.activeId;
+      persistSets(); renderSetSelect(); loadSetToForm(); if (donors.length) renderDetail();
+      alert(`已匯入 ${added} 季素材（同名 id 會覆蓋）。`);
+    } catch (err) { alert('匯入失敗：' + err.message); }
+    e.target.value = '';
+  };
+  rd.readAsText(f);
+});
+
+/* ===================== 名單 ===================== */
+let raw = null;          // { donorRows, txByDonor, maxTxDate }
+let donors = [];         // T1 收件人
+let currentStage = 's30';
+let filtered = [];
+let selected = null;
+let sent = lsGet(LS_SENT, {});
+const sentKey = d => `${d.id}|${d.stage}|${fmt(d.firstDate)}`;
+
+const uploadZone = $('uploadZone');
+$('pickBtn').addEventListener('click', () => $('fileInput').click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+$('fileInput').addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); e.target.value = ''; });
+
+function handleFile(file) {
+  const rd = new FileReader();
+  rd.onload = e => {
+    try { loadWorkbook(XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true }), file.name); }
+    catch (err) { alert('讀取失敗：' + err.message); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function loadWorkbook(wb, fileName) {
+  const dName = wb.SheetNames.find(n => n.includes('捐款人名單'));
+  const tName = wb.SheetNames.find(n => n.includes('捐款紀錄'));
+  if (!dName || !tName) { alert('找不到「捐款人名單」或「捐款紀錄」分頁，請確認匯出的工作簿。'); return; }
+  const donorRows = XLSX.utils.sheet_to_json(wb.Sheets[dName], { defval: '' });
+  const txRows = XLSX.utils.sheet_to_json(wb.Sheets[tName], { defval: '' });
+  const txByDonor = {};
+  let maxTxDate = null;
+  txRows.forEach(r => {
+    const id = String(r['捐款人名代碼'] || '').trim();
+    const d = parseDate(r['收到日期']);
+    if (!id || !d) return;
+    (txByDonor[id] = txByDonor[id] || []).push({ date: d, mode: String(r['捐款方式'] || '').trim(), project: String(r['專案名稱'] || '').trim(), amount: Number(r['金額']) || 0 });
+    if (!maxTxDate || d > maxTxDate) maxTxDate = d;
+  });
+  Object.values(txByDonor).forEach(a => a.sort((x, y) => x.date - y.date));
+  raw = { donorRows, txByDonor, maxTxDate };
+  $('refDate').value = fmt(maxTxDate || new Date());
+  $('refHint').textContent = `捐款紀錄最後一筆：${fmt(maxTxDate)}（基準日預設用這天；實際使用時改成今天）`;
+  uploadZone.classList.add('compact');
+  uploadZone.querySelector('h2').textContent = `✅ 已匯入：${fileName}`;
+  $('uploadHint').textContent = `名單 ${donorRows.length.toLocaleString()} 人、捐款紀錄 ${txRows.length.toLocaleString()} 筆。要換名單可再拖曳新檔案進來。`;
+  $('pickBtn').textContent = '重新匯入';
+  $('dashboard').classList.remove('hidden');
+  compute();
+}
+
+function compute() {
+  if (!raw) return;
+  const ref = parseDate($('refDate').value) || raw.maxTxDate;
+  const win = Math.max(50, +$('winDays').value || 60);
+  donors = [];
+  raw.donorRows.forEach(r => {
+    const id = String(r['捐款人名代碼'] || '').trim();
+    const txs = raw.txByDonor[id];
+    if (!id || !txs) return;
+    const past = txs.filter(t => startOfDay(t.date) <= startOfDay(ref));
+    if (!past.length) return;
+    const first = past[0];
+    if (first.mode !== '單筆') return;                 // 首捐必須是單筆
+    const day = daysBetween(first.date, ref);
+    if (day < 0 || day > win) return;                  // 首捐後 N 天內
+    const planStart = parseDate(r['開始日期']);
+    const methodAll = String(r['捐款方式'] || '');
+    // 名單上有比首捐更早開始的定期方案 → 不是新朋友（曾經定期的老捐款人）
+    if (methodAll.includes('定期') && planStart && daysBetween(planStart, first.date) > 3) return;
+    const regTx = past.find(t => t.mode === '定期定額' && t.date >= first.date);
+    const status = String(r['定期定額狀態'] || '').trim();
+    const converted = !!regTx || (status === '進行中' && planStart && daysBetween(first.date, planStart) >= -3 && planStart <= ref);
+    const authFail = status === '授權失敗' && planStart && planStart >= startOfDay(first.date);
+    const openCat = classifyOpen(r);
+    const offline = openCat === '無Email' || openCat === '都沒開';
+    let stage, stageDay;
+    if (day < 30) { stage = 's0'; stageDay = 0; }
+    else if (day < 50) { stage = 's30'; stageDay = 30; }
+    else { stage = converted ? 's50a' : 's50b'; stageDay = 50; }
+    const due = new Date(startOfDay(first.date).getTime() + stageDay * DAY);
+    donors.push({
+      id, row: r, firstDate: first.date, firstAmount: first.amount, firstProject: first.project || String(r['專案名稱'] || '') || '微客公益',
+      suggest: suggestMonthly(first.amount), day, stage, due, daysInStage: day - stageDay,
+      converted, convertedDate: regTx ? regTx.date : (converted ? planStart : null), authFail,
+      openCat, offline, pay: String(r['付款方式'] || ''), source: String(r['來源'] || '').trim() || '未填',
+      note: String(r['備註'] || '').trim(), isCalendar: (first.project || '').includes('桌曆'),
+      giftsSince: past.length,
+    });
+  });
+  donors.sort((a, b) => a.due - b.due || a.id.localeCompare(b.id));
+  populateFilters();
+  renderStages();
+  applyFilters();
+}
+
+function populateFilters() {
+  const fillSel = (id, vals, label) => {
+    const cur = $(id).value;
+    $(id).innerHTML = `<option value="">${label}</option>` + [...new Set(vals)].sort().map(v => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  };
+  fillSel('fProject', donors.map(d => d.firstProject), '全部專案');
+  fillSel('fSource', donors.map(d => d.source), '全部來源');
+}
+
+function isDue(d) { return d.daysInStage < (+$('dueDays').value || 7); }
+function renderStages() {
+  const by = k => donors.filter(d => d.stage === k);
+  $('tlSum').textContent = `T1 首捐者共 ${donors.length} 人｜Email 到不了 ${donors.filter(d => d.offline).length} 人｜已轉定期 ${donors.filter(d => d.converted).length} 人`;
+  $('stages').innerHTML = STAGES.map(s => {
+    const list = by(s.key);
+    const due = list.filter(isDue).length;
+    const unsent = list.filter(d => isDue(d) && !sent[sentKey(d)]).length;
+    return `<button class="stage ${s.key === currentStage ? 'active' : ''}" style="--c:${s.color}" data-k="${s.key}">
+      <span class="day">Day ${s.day}</span>
+      <div class="name">${s.name}</div>
+      <div class="goal">${s.goal}</div>
+      <div class="n">${list.length}<small>人在此階段</small></div>
+      <div class="due">${due ? `本週該寄 ${due} 人${unsent < due ? `（未寄 ${unsent}）` : ''}` : '本週無新進'}</div>
+    </button>`;
+  }).join('');
+}
+$('stages').addEventListener('click', e => {
+  const b = e.target.closest('.stage'); if (!b) return;
+  currentStage = b.dataset.k; renderStages(); applyFilters();
+});
+['refDate', 'winDays'].forEach(id => $(id).addEventListener('change', compute));
+$('dueDays').addEventListener('change', () => { renderStages(); applyFilters(); });
+['fDue', 'fHideSent', 'fChannel', 'fProject', 'fSource', 'fNoCal', 'fSearch'].forEach(id => $(id).addEventListener('input', applyFilters));
+
+function applyFilters() {
+  const ch = $('fChannel').value, p = $('fProject').value, src = $('fSource').value, q = $('fSearch').value.trim().toLowerCase();
+  filtered = donors.filter(d => {
+    if (d.stage !== currentStage) return false;
+    if ($('fDue').checked && !isDue(d)) return false;
+    if ($('fHideSent').checked && sent[sentKey(d)]) return false;
+    if (ch === 'email' && d.offline) return false;
+    if (ch === 'offline' && !d.offline) return false;
+    if (p && d.firstProject !== p) return false;
+    if (src && d.source !== src) return false;
+    if ($('fNoCal').checked && d.isCalendar) return false;
+    if (q && !`${d.id} ${d.note}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const st = STAGE_BY_KEY[currentStage];
+  $('listTitle').textContent = `${st.name}｜${filtered.length} 人`;
+  $('emptyMsg').classList.toggle('hidden', filtered.length > 0);
+  $('tbody').innerHTML = filtered.map((d, i) => {
+    const isSent = !!sent[sentKey(d)];
+    const conv = d.converted ? `<span class="tag t-ok">已轉 ${fmt(d.convertedDate).slice(5)}</span>` : d.authFail ? '<span class="tag t-warn">首扣失敗</span>' : '<span class="tag t-s0">未轉</span>';
+    const chTag = d.offline ? `<span class="tag t-warn">簡訊／紙本</span>` : '<span class="tag t-s30">Email</span>';
+    const dueTag = isDue(d) && !isSent ? ' <span class="tag t-due">本週</span>' : '';
+    return `<tr data-i="${i}" class="${isSent ? 'sent' : ''}">
+      <td>${isSent ? '✓' : ''}</td>
+      <td><strong>${esc(d.id)}</strong></td>
+      <td><span class="tag t-${d.stage}">${esc(st.name.split('｜')[0])}</span></td>
+      <td>${fmt(d.firstDate)}</td>
+      <td>第 ${d.day} 天</td>
+      <td>${fmt(d.due)}${dueTag}</td>
+      <td>${esc(d.firstProject)}｜${d.firstAmount.toLocaleString()}</td>
+      <td>${esc(d.pay)}</td>
+      <td>${conv}</td>
+      <td>${chTag}</td>
+      <td>${esc(d.note.replace(/\n/g, '／')) || '-'}</td>
+    </tr>`;
+  }).join('');
+  const keep = selected && filtered.indexOf(selected);
+  selectDonor(keep >= 0 ? keep : 0);
+}
+$('tbody').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) selectDonor(+tr.dataset.i); });
+
+function selectDonor(i) {
+  document.querySelectorAll('#tbody tr').forEach(tr => tr.classList.toggle('selected', +tr.dataset.i === i));
+  selected = filtered[i] || null;
+  renderDetail();
+}
+function renderDetail() {
+  const d = selected;
+  if (!d) {
+    $('selTag').textContent = '無收件人'; $('donorMeta').innerHTML = ''; $('noteAlert').classList.add('hidden');
+    $('pvSubject').textContent = '—'; $('pvBody').textContent = '—'; $('pvQuarter').textContent = ''; return;
+  }
+  $('selTag').textContent = `已選取：${d.id}`;
+  const pills = [`首捐 ${fmt(d.firstDate)}（第 ${d.day} 天）`, `${d.firstProject} ${d.firstAmount.toLocaleString()} 元`, `建議月捐 ${d.suggest.toLocaleString()} 元`, `付款：${d.pay || '未填'}`, `來源：${d.source}`, `開信：${d.openCat}`];
+  if (d.giftsSince > 1) pills.push(`首捐後共 ${d.giftsSince} 筆`);
+  $('donorMeta').innerHTML = pills.map(t => `<span class="meta-pill">${esc(t)}</span>`).join('');
+  const alerts = [];
+  if (d.offline) alerts.push(d.openCat === '無Email' ? '這位沒有 email，請改用簡訊、紙本或電話。' : '這位從來沒開過信，建議改用簡訊、紙本或電話。');
+  if (d.pay && d.pay !== '信用卡' && !d.converted && d.stage !== 's0') alerts.push(`首捐用「${d.pay}」，定期定額需要信用卡，邀請時可提醒改用信用卡。`);
+  if (d.isCalendar) alerts.push('首捐是桌曆認購：12 月寄桌曆時，可在包裹放紙本轉定期邀請卡。');
+  if (d.authFail) alerts.push('曾設定定期但首期扣款失敗，建議先協助重新授權。');
+  if (/統編|公司|過世|父母|小孩|朋友/.test(d.note)) alerts.push(`備註：「${d.note.replace(/\n/g, '／')}」，寄信前請確認稱謂與收件對象。`);
+  $('noteAlert').innerHTML = alerts.map(a => '⚠️ ' + esc(a)).join('<br>');
+  $('noteAlert').classList.toggle('hidden', !alerts.length);
+  const r = render(d, d.stage);
+  $('pvSubject').textContent = r.subject; $('pvBody').textContent = r.body;
+  $('pvQuarter').textContent = `套用素材：${activeSet().name}（到「信件素材管理」修改或切換季度）`;
+  $('sentBtn').textContent = sent[sentKey(d)] ? '↺ 取消已寄' : '✓ 標記已寄';
+}
+
+$('copyBtn').addEventListener('click', () => {
+  if (!selected) return;
+  const text = `主旨：${$('pvSubject').textContent}\n\n${$('pvBody').textContent}`;
+  const done = () => { $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 1800); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done)); else fallbackCopy(text, done);
+});
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch {} ta.remove();
+}
+function toggleSent(list, value) {
+  list.forEach(d => { if (value) sent[d.id + '|' + d.stage + '|' + fmt(d.firstDate)] = fmt(new Date()); else delete sent[sentKey(d)]; });
+  lsSet(LS_SENT, sent); renderStages(); applyFilters();
+}
+$('sentBtn').addEventListener('click', () => { if (selected) toggleSent([selected], !sent[sentKey(selected)]); });
+$('markAllBtn').addEventListener('click', () => {
+  if (!filtered.length) return;
+  if (confirm(`將目前列表的 ${filtered.length} 人標記為「已寄」？`)) toggleSent(filtered, true);
+});
+
+$('exportCsvBtn').addEventListener('click', () => {
+  if (!filtered.length) return;
+  const st = STAGE_BY_KEY[currentStage];
+  const headers = ['捐款人名代碼', '信件', '首捐日', '第幾天', '預定寄送日', '首捐專案', '首捐金額', '建議月捐', '付款方式', '來源', '轉定期', '建議管道', '開信狀況', '備註', '主旨', '內文', '素材季度'];
+  const rows = filtered.map(d => {
+    const r = render(d, d.stage);
+    return [d.id, st.name, fmt(d.firstDate), d.day, fmt(d.due), d.firstProject, d.firstAmount, d.suggest, d.pay, d.source,
+      d.converted ? '已轉' : (d.authFail ? '首扣失敗' : '未轉'), d.offline ? '簡訊／紙本' : 'Email', d.openCat, d.note.replace(/\r?\n/g, ' '), r.subject, r.body, activeSet().name];
+  });
+  const csv = '﻿' + [headers, ...rows].map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = `微客_T1_${st.name.replace(/[｜\s]/g, '_')}_${$('refDate').value}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* ===================== 分頁切換 ===================== */
+document.querySelectorAll('.main-tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.main-tab').forEach(x => x.classList.toggle('active', x === b));
+  $('view-work').classList.toggle('hidden', b.dataset.view !== 'work');
+  $('view-mat').classList.toggle('hidden', b.dataset.view !== 'mat');
+}));
+
+renderSetSelect();
+loadSetToForm();
+$('saveNote').textContent = '修改會自動儲存在這台電腦的瀏覽器';
+</script>
+</body>
+</html>
