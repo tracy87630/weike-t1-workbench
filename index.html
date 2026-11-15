@@ -315,7 +315,8 @@
               <h3 id="listTitle">收件名單</h3>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button type="button" class="btn btn-outline btn-sm" id="markAllBtn">✓ 本頁全部標記已寄</button>
-                <button type="button" class="btn btn-outline btn-sm" id="exportCsvBtn">⬇ 匯出寄送清單 CSV</button>
+                <button type="button" class="btn btn-primary btn-sm" id="exportXlsxBtn">⬇ 匯出名單 Excel</button>
+                <button type="button" class="btn btn-outline btn-sm" id="exportCsvBtn">⬇ 寄送清單 CSV（含文案）</button>
               </div>
             </div>
             <div class="filters">
@@ -356,6 +357,7 @@
             <div class="email-frame" id="pvEmail"></div>
             <div class="action-row">
               <button type="button" class="btn btn-primary" id="copyHtmlBtn">📋 複製 EDM（含版面）</button>
+              <button type="button" class="btn btn-outline" id="dlHtmlBtn">⬇ 下載 EDM HTML</button>
               <button type="button" class="btn btn-outline" id="copyTextBtn">複製純文字</button>
               <button type="button" class="btn btn-outline" id="dlImgBtn">⬇ 下載插圖 PNG</button>
               <button type="button" class="btn btn-outline" id="sentBtn">✓ 標記已寄</button>
@@ -1082,6 +1084,51 @@ $('exportCsvBtn').addEventListener('click', () => {
   const rows = filtered.map(d => { const r = renderPlain(d, d.stage); return [d.id, st.name, fmt(d.firstDate), d.day, fmt(d.due), d.firstProject, d.firstAmount, d.suggest, d.pay, d.source, d.converted ? '已轉' : (d.authFail ? '首扣失敗' : '未轉'), d.offline ? '簡訊／紙本' : 'Email', d.openCat, d.note.replace(/\r?\n/g, ' '), r.subject, r.body, r.ctaLabel, r.ctaLink, activeSet().name]; });
   const csv = '﻿' + [headers, ...rows].map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `微客_T1_${st.name.replace(/[｜\s]/g, '_')}_${$('refDate').value}.csv`);
+});
+
+const safeName = s => String(s).replace(/[\\/:*?"<>|｜\s]/g, '_');
+$('exportXlsxBtn').addEventListener('click', () => {
+  if (!filtered.length) { flash('目前沒有符合條件的收件人可以匯出。', true); return; }
+  const st = STAGE_BY_KEY[currentStage];
+  const rows = filtered.map(d => ({
+    '捐款人名代碼': d.id, '信件': st.name, '首捐日': fmt(d.firstDate), '首捐後第幾天': d.day, '預定寄送日': fmt(d.due),
+    '本週該寄': isDue(d) ? '是' : '', '已寄': sent[sentKey(d)] ? '是' : '',
+    '首捐專案': d.firstProject, '首捐金額': d.firstAmount, '建議月捐': d.suggest, '付款方式': d.pay, '來源': d.source,
+    '轉定期': d.converted ? '已轉' : (d.authFail ? '首扣失敗' : '未轉'), '建議管道': d.offline ? '簡訊／紙本' : 'Email',
+    '開信狀況': d.openCat, '縣市': String(d.row['縣市'] || ''), '收據抬頭': String(d.row['收據抬頭或統編'] || ''), '備註': d.note.replace(/\r?\n/g, '／'),
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = Object.keys(rows[0]).map(k => ({ wch: Math.max(8, Math.min(28, k.length * 2 + 2)) }));
+  const conds = [];
+  if ($('fDue').checked) conds.push('只看本週該寄'); if ($('fHideSent').checked) conds.push('隱藏已寄');
+  if ($('fChannel').value) conds.push($('fChannel').selectedOptions[0].text); if ($('fProject').value) conds.push('專案：' + $('fProject').value);
+  if ($('fSource').value) conds.push('來源：' + $('fSource').value); if ($('fNoCal').checked) conds.push('排除桌曆認購'); if ($('fSearch').value.trim()) conds.push('搜尋：' + $('fSearch').value.trim());
+  const info = XLSX.utils.aoa_to_sheet([['收件群', st.name], ['基準日', $('refDate').value], ['人數', filtered.length], ['篩選條件', conds.join('、') || '無'], ['匯出時間', new Date().toLocaleString('zh-TW')]]);
+  info['!cols'] = [{ wch: 12 }, { wch: 40 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '收件名單'); XLSX.utils.book_append_sheet(wb, info, '篩選條件');
+  XLSX.writeFile(wb, `微客_收件名單_${safeName(st.name)}_${$('refDate').value}.xlsx`);
+  showToast(`已匯出 ${filtered.length} 人`);
+});
+$('dlHtmlBtn').addEventListener('click', async () => {
+  if (!selected) return;
+  const p = renderParts(selected, selected.stage);
+  const img = await imageForSending(p.set, p.part);
+  const doc = `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(p.subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND.cream};">
+<!-- 主旨：${p.subject.replace(/--/g, '—')} -->
+${emailHTML(p, LOGO_URL, img.src)}
+</body>
+</html>`;
+  downloadBlob(new Blob([doc], { type: 'text/html;charset=utf-8' }), `微客_EDM_${safeName(STAGE_BY_KEY[selected.stage].short)}_${safeName(activeSet().name)}.html`);
+  showToast('已下載 EDM HTML');
+  if (img.embedded) flash('這份 HTML 的插圖是內嵌圖片，Gmail 等信箱可能不顯示。請先下載插圖 PNG 上傳到 EDM 系統，把網址貼到素材管理的「寄送用圖片網址」後再下載一次。');
 });
 
 /* ===================== 分頁切換 ===================== */
